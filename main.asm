@@ -529,6 +529,48 @@ freq1 = *+1-end_line_0_+end_line_0
     rts         ; 9
 end_line_end
 
+; these macros could be used alternatively to save cycles, but cost some ROM
+end_line_0m .macro ; 41
+    clc         ; 43    might not be required
+    dec cnt0    ; 48
+    bmi +       ; 50
+    sta WSYNC
+;---------------------------------------
+    bpl ++
+
++   lda acc0    ; 52    +1
+    adc frac0   ; 54
+    sta acc0    ; 57
+    lda #0      ; 59
+    adc freq0   ; 61
+    sta cnt0    ; 64    total = 64 - 41 = 23
+    sta WSYNC   ; 76
+;---------------------------------------
+    sta AUDF0   ; 3
++
+    .endmacro
+
+
+end_line_1m .macro ; 41
+    clc         ; 43    might not be required
+    dec cnt1    ; 48
+    bmi +
+    sta WSYNC
+;---------------------------------------
+    bpl ++
+
++   lda acc1    ; 52    +1
+    adc frac1   ; 54
+    sta acc1    ; 57
+    lda #0      ; 59
+    adc freq1   ; 61
+    sta cnt1    ; 64    total = 64 - 41 = 23
+    sta WSYNC   ; 76
+;---------------------------------------
+    sta AUDF1   ; 3
++
+    .endmacro
+
     .dsection screens
     .dsection twin_bank0
 
