@@ -1,7 +1,7 @@
     .include "hw.asm"
     .include "screens.asm"
     .include "song.asm"
-    
+
 ch_s .struct
 ptr     .word ?
 bank    .byte ?
@@ -13,8 +13,12 @@ retbank .byte ?
 retcnt  .byte ?
 grp     .byte ?
     .endstruct
-    
+
     .section player_vars
+cnt0        .byte ?
+;cmp0        .byte ?
+cnt1        .byte ?
+;cmp1        .byte ?
 end_line_0  .fill end_line_1_-end_line_0_
 end_line_1  .fill end_line_end-end_line_1_
 clear_start
@@ -25,7 +29,7 @@ synccnt     .byte ?
 dispmask    .byte ?
 clear_end
     .endsection
-    
+
 * = $80
 tmpA        .byte ?
 tmpX        .byte ?
@@ -38,10 +42,10 @@ tmpY        .byte ?
     .dsection screens_vars
     .endstruct
     .endunion
-    
+
 * = $0000
     .logical $1000
-    
+
 music_start
     sta WSYNC
     lda #20
@@ -102,7 +106,7 @@ frame_loop
     jsr end_line_0
     lda #20         ; 2
     sta T1024T      ; 6
-    
+
 process_syncval
     ldx synccnt     ; 9
     beq _skipsync   ; 11
@@ -145,7 +149,7 @@ _donesync
     lda ch1.grp
     and dispmask
     sta GRP1
-    
+
 ; command format
 ; 00xxxxxx x      call
 ; 00111110 x      sync
@@ -155,14 +159,14 @@ _donesync
 ; 1vcwxxxx .      dt vol/set ctrl/set wait/wait
 ; 11000000        bank end
 ; 11100000 x x x  loop/end
-    
+
 update_ch .macro
     jsr end_line_1
     dec ch\1.cnt    ; 5
     beq +           ; 9
     jsr end_line_0
     jmp _done
-+   
++
 _startcmd
     ldy #0          ; 11
 _cmdloop
@@ -175,7 +179,7 @@ _cmdloop
     asl             ; 5
     bmi +           ; 9 |7
     jmp _notfreq    ; 10
-    
+
 +   asl             ; 11
     bpl _dtfreq     ; 13|15
     jsr g.bank.get_ptr\1 ; 18
@@ -186,7 +190,7 @@ _cmdloop
     and #$1f        ; 5
     sta freq\1      ; 8
     jmp _cmdloop    ; 11
-    
+
 _dtfreq
     asl             ; 17
     asl             ; 19
@@ -215,17 +219,17 @@ _dtfreq
 +   jsr end_line_0
     jsr end_line_1
     jmp _cmdloop
-    
+
 _finalcmd
     sta tmpX        ; 26
     jsr end_line_1
-    
+
     iny             ; 2
     lda #0          ; 4
     sta tmpY        ; 7
     asl tmpA        ; 12
     bpl _voldone    ; 14|16
-    
+
     lda tmpX        ; 17
     and #$f         ; 19
     bne _volcmd     ; 23|21
@@ -258,7 +262,7 @@ _volcmd
 _voldone
     asl tmpA        ; 19
     bpl _ctrldone   ; 21|23
-    
+
     jsr end_line_0
     ldx tmpY        ; 3
     beq +           ; 5
@@ -285,7 +289,7 @@ _ctrldone
     iny             ; 18
     sta tmpX        ; 21
     jmp ++          ; 24
-    
+
 +   jsr end_line_1
     lsr tmpX
     lsr tmpX
@@ -322,7 +326,7 @@ _notfreq
     beq _waitl      ; 7|9
     cmp #%00111110  ; 9
     beq _sync       ; 11|13
-    
+
     ; call
     ; TODO support IDs > 255
     tya             ; 13
@@ -350,7 +354,7 @@ _notfreq
     sta ch\1.retcnt
     jsr end_line_1
     jmp _startcmd
-    
+
 _sync
     jsr end_line_0
     lda tmpX
@@ -359,7 +363,7 @@ _sync
     sta synccnt
     jsr end_line_1
     jmp _cmdloop
-    
+
 _waitl
     jsr end_line_0
     ldx tmpX
@@ -385,7 +389,7 @@ _done
     sta ch\1.retptr+1
 +   jsr end_line_0
     .endmacro
-    
+
 upd0    #update_ch 0
 upd1    #update_ch 1
                     ; 3
@@ -399,7 +403,9 @@ upd1    #update_ch 1
     sta COLUP1      ; 24
 -   jsr end_line_1
     sta HMOVE       ; 3
-    lda cmp0        ; 6
+;    lda cmp0        ; 6
+;    lda cnt0        ; 6
+    lda acc0        ; 6
     asl             ; 8
     asl             ; 10
     asl             ; 12
@@ -407,7 +413,9 @@ upd1    #update_ch 1
     sta HMP0        ; 17
     jsr end_line_0
     sta HMOVE       ; 3
-    lda cmp1        ; 6
+;    lda cmp1        ; 6
+;    lda cnt1        ; 6
+    lda acc1        ; 6
     asl             ; 8
     asl             ; 10
     asl             ; 12
@@ -421,70 +429,115 @@ upd1    #update_ch 1
     sta HMP0
     sta HMP1
     jmp frame_loop
-    
+
     ; we need to keep track of the frequency counter to make sure that writes
     ; won't make the compare miss and cause noisy output, multiples of base
     ; divider rate (2x line rate) should be fine
                 ; 35
+;end_line_0_     ; 41
+;    inc cnt0    ; 46
+;cmp0 = *+1-end_line_0_+end_line_0
+;    lda #0      ; 48
+;cnt0 = *+1-end_line_0_+end_line_0
+;    cmp #0      ; 50
+;    lda #0      ; 52
+;    bcs ++      ; 54
+;    sta cnt0    ; 57
+;freq0 = *+1-end_line_0_+end_line_0
+;    ldx #0      ; 59
+;acc0 = *+1-end_line_0_+end_line_0
+;    lda #0      ; 61
+;frac0 = *+1-end_line_0_+end_line_0
+;    adc #0      ; 63
+;    sta acc0    ; 66
+;    bcc +       ; 68
+;    inx         ; 70
+;+   stx cmp0    ; 73
+;    sta WSYNC   ; 76
+;    stx AUDF0   ; 3
+;    rts         ; 9
+;+               ; =35-9=26
+;-   sta WSYNC
+;    rts
+;
+;end_line_1_
+;    inc cnt1
+;cmp1 = *+1-end_line_0_+end_line_0
+;    lda #0
+;cnt1 = *+1-end_line_0_+end_line_0
+;    cmp #0
+;    lda #0
+;    bcs -
+;    sta cnt1
+;freq1 = *+1-end_line_0_+end_line_0
+;    ldx #0
+;acc1 = *+1-end_line_0_+end_line_0
+;    lda #0
+;frac1 = *+1-end_line_0_+end_line_0
+;    adc #0
+;    sta acc1
+;    bcc +
+;    inx
+;+   stx cmp1
+;    sta WSYNC
+;    stx AUDF1
+;    rts
+;end_line_end
+
+
 end_line_0_     ; 41
-    inc cnt0    ; 46
-cmp0 = *+1-end_line_0_+end_line_0
-    lda #0      ; 48
-cnt0 = *+1-end_line_0_+end_line_0
-    cmp #0      ; 50
-    lda #0      ; 52
-    bcs ++      ; 54
-    sta cnt0    ; 57
-freq0 = *+1-end_line_0_+end_line_0
-    ldx #0      ; 59
+    clc         ; 43    might not be required
+    dec cnt0    ; 48
+    bpl +       ; 50
 acc0 = *+1-end_line_0_+end_line_0
-    lda #0      ; 61
+    lda #0      ; 52
 frac0 = *+1-end_line_0_+end_line_0
-    adc #0      ; 63
-    sta acc0    ; 66
-    bcc +       ; 68
-    inx         ; 70
-+   stx cmp0    ; 73
+    adc #0      ; 54
+    sta acc0    ; 57
+    lda #0      ; 59
+freq0 = *+1-end_line_0_+end_line_0
+    adc #0      ; 61
+    sta cnt0    ; 64    total = 64 - 41 = 23
+;    sta cmp0
     sta WSYNC   ; 76
-    stx AUDF0   ; 3
+;---------------------------------------
+    sta AUDF0   ; 3
     rts         ; 9
-+               ; =35-9=26
+
++
 -   sta WSYNC
+;---------------------------------------
     rts
 
-end_line_1_
-    inc cnt1
-cmp1 = *+1-end_line_0_+end_line_0
-    lda #0
-cnt1 = *+1-end_line_0_+end_line_0
-    cmp #0
-    lda #0
-    bcs -
-    sta cnt1
-freq1 = *+1-end_line_0_+end_line_0
-    ldx #0
+end_line_1_     ; 41
+    clc         ; 43    might not be required
+    dec cnt1    ; 48
+    bpl -       ; 50
 acc1 = *+1-end_line_0_+end_line_0
-    lda #0
+    lda #0      ; 52
 frac1 = *+1-end_line_0_+end_line_0
-    adc #0
-    sta acc1
-    bcc +
-    inx
-+   stx cmp1
-    sta WSYNC
-    stx AUDF1
-    rts
+    adc #0      ; 54
+    sta acc1    ; 57
+    lda #0      ; 59
+freq1 = *+1-end_line_0_+end_line_0
+    adc #0      ; 61
+    sta cnt1    ; 64    total = 64 - 41 = 23
+;    sta cmp1
+    sta WSYNC   ; 76
+;---------------------------------------
+    sta AUDF1   ; 3
+    rts         ; 9
 end_line_end
 
     .dsection screens
     .dsection twin_bank0
-    
+
     .here
-    
+
 bank_common  .macro
 org = (\1 + 1) * $1000 - size(bank)
     .cerror * > org, "bank ", \1, " too large! (", *, ")"
-    
+
 * = org
     .logical (\1 + 1) * $2000 - size(bank)
 bank    .block
@@ -496,7 +549,7 @@ get_ptr0            ; 19
     lda (ch0.ptr),y ; 6
     sta BANK0       ; 10
     rts             ; 16
-    
+
 get_ptr1
     ldx ch1.bank
     lda BANK0,x
@@ -504,7 +557,7 @@ get_ptr1
     lda (ch1.ptr),y
     sta BANK0
     rts
-    
+
 reset
     sta BANK0
     jmp start
@@ -522,37 +575,37 @@ g   #bank_common 0
     .dsection twin_bank1
     .here
     #bank_common 1
-    
+
 * = $2000
     .logical $5000
     .dsection twin_bank2
     .here
     #bank_common 2
-    
+
 * = $3000
     .logical $7000
     .dsection twin_bank3
     .here
     #bank_common 3
-    
+
 * = $4000
     .logical $9000
     .dsection twin_bank4
     .here
     #bank_common 4
-    
+
 * = $5000
     .logical $b000
     .dsection twin_bank5
     .here
     #bank_common 5
-    
+
 * = $6000
     .logical $d000
     .dsection twin_bank6
     .here
     #bank_common 6
-    
+
 * = $7000
     .logical $f000
     .dsection twin_bank7
