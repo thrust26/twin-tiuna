@@ -1,5 +1,7 @@
 # Twin ("a literal twin-channeled cover")
 
+Note: This fork only optimizes the frequency mixing code so that it uses less cycles. Since the variable which is used in the original for the video output got optimized away and replaced with a different one, the video looks different.
+
 This is a source code to the Atari 2600 music demo "Twin". It also contains the
 code for the software pitch driver called TIunA which works by changing between
 two pitch registers at a very fast speed at the right time. It is located in
